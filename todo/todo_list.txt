@@ -1,0 +1,12 @@
+Julien:
+-chimp face rec
+-chimp video
+-deep learning for facial recognition
+-eigenfaces
+
+theo:
+-grabcut
+-graphcut
+-deepface
+-superpixel
+
