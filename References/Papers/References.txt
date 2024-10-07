@@ -18,3 +18,12 @@ Rother, C., Kolmogorov, V., & Blake, A. (2004). " GrabCut" interactive foregroun
 
 Mask R-CNN:
 He, K., Gkioxari, G., Dollár, P., & Girshick, R. (2017). Mask r-cnn. In Proceedings of the IEEE international conference on computer vision (pp. 2961-2969).
+
+Chimpanzee face recognition from videos in the wildusing deep learning:
+Schofield, D., Nagrani, A., Zisserman, A., Hayashi, M., Matsuzawa, T., Biro, D., & Carvalho, S. (2019). Chimpanzee face recognition from videos in the wild using deep learning. Science advances, 5(9), eaaw0736.
+
+Automated chimpanzee identification system:
+Loos, A., & Ernst, A. (2013). An automated chimpanzee identification system using face detection and recognition. EURASIP Journal on Image and Video Processing, 2013, 1-17.
+
+Deep learning and facial rec:
+Hu, G., Yang, Y., Yi, D., Kittler, J., Christmas, W., Li, S. Z., & Hospedales, T. (2015). When face recognition meets with deep learning: an evaluation of convolutional neural networks for face recognition. In Proceedings of the IEEE international conference on computer vision workshops (pp. 142-150).
