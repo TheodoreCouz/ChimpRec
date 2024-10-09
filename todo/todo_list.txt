@@ -7,6 +7,6 @@ Julien:
 theo:
 -grabcut
 -graphcut
--deepface
+-deepface (read)
 -superpixel
 
