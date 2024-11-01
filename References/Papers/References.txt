@@ -27,3 +27,6 @@ Loos, A., & Ernst, A. (2013). An automated chimpanzee identification system usin
 
 Deep learning and facial rec:
 Hu, G., Yang, Y., Yi, D., Kittler, J., Christmas, W., Li, S. Z., & Hospedales, T. (2015). When face recognition meets with deep learning: an evaluation of convolutional neural networks for face recognition. In Proceedings of the IEEE international conference on computer vision workshops (pp. 142-150).
+
+Count, Crop and Recognise:
+Bain, M., Nagrani, A., Schofield, D., & Zisserman, A. (2019). Count, crop and recognise: Fine-grained recognition in the wild. In Proceedings of the IEEE/CVF International Conference on Computer Vision Workshops (pp. 0-0).
