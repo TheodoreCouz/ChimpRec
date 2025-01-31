@@ -5,4 +5,5 @@ ChimpRec-Dataset/Chimpanzee_detection_dataset
 ChimpRec-Dataset/chimpbehave
 ChimpRec-Dataset/Our_data/Videos
 Code/detection/YOLO/out.mp4
-
+ChimpRec-Dataset/Chimpanzee_recognition_dataset
+Code/recognition/FaceNet/facenet_chimpanzee_finetuned.pth
