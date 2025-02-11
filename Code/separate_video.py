@@ -1,6 +1,7 @@
 import cv2
 import os
 import random
+import shutil
 
 def extract_frames(video_path, output_folder, n_frames=None):
     filename = video_path.split("/")[-1].split(".")[0]
