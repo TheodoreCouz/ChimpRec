@@ -1,0 +1,6 @@
+path: /home/theo/Documents/Unif/Master/ChimpRec/ChimpRec-Dataset/Face_detection_CCR
+train: images/train
+val: images/val
+
+names:
+  0: Chimpanzee
