@@ -2,6 +2,7 @@ import cv2
 import os
 import random
 import shutil
+from PIL import Image
 
 def extract_frames(video_path, output_folder, n_frames=None):
     filename = video_path.split("/")[-1].split(".")[0]
@@ -33,13 +34,14 @@ def extract_frames(video_path, output_folder, n_frames=None):
         
         if frame_count == selected_frames[selected_idx]:
             frame_filename = os.path.join(output_folder, f"{filename}_frame_{frame_count:04d}.png")
-            cv2.imwrite(frame_filename, frame)
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))  # Conversion BGR → RGB
+            image.save(frame_filename)
             selected_idx += 1
-        
+                
         frame_count += 1
     
     cap.release()
 
-video_path = '/home/theo/Documents/Unif/Master/viedeos/20241214 - 08h37.MP4'  # Remplace avec le chemin de ta vidéo
-output_folder = '/home/theo/Documents/Unif/Master/last_output'  # Dossier où enregistrer les frames
-extract_frames(video_path, output_folder, 720)
+video_path = "C:/Users/julie/OneDrive - UCL/Master_2/Mémoire/Chimprec Dataset/Videos/Identification/Individuelle/Banalia - BL/Banalia1.mp4"  # Remplace avec le chemin de ta vidéo
+output_folder = "C:/Users/julie/Documents/Unif/Mémoire/extracted_frame"  # Dossier où enregistrer les frames
+extract_frames(video_path, output_folder)
