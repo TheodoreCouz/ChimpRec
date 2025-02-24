@@ -7,10 +7,9 @@ from PIL import Image
 def extract_frames(video_path, output_folder, n_frames=None):
     filename = video_path.split("/")[-1].split(".")[0]
     
-    if os.path.exists(output_folder):
-        shutil.rmtree(output_folder)
-    
-    os.makedirs(output_folder, exist_ok=True)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder, exist_ok=True)
+
     cap = cv2.VideoCapture(video_path)
     
     if not cap.isOpened():
@@ -42,6 +41,24 @@ def extract_frames(video_path, output_folder, n_frames=None):
     
     cap.release()
 
-video_path = "C:/Users/julie/OneDrive - UCL/Master_2/Mémoire/Chimprec Dataset/Videos/Identification/Individuelle/Banalia - BL/Banalia1.mp4"  # Remplace avec le chemin de ta vidéo
-output_folder = "C:/Users/julie/Documents/Unif/Mémoire/extracted_frame"  # Dossier où enregistrer les frames
-extract_frames(video_path, output_folder)
+output_folder = "c:/Users/Theo/Documents/Unif/images"
+
+
+folder_path = "E:/Nouvelles Vidéos"
+videos = [
+    "20241015 - 11h46.MP4",
+    "20241015 - 12h29.MP4",
+    "20241015 - 12h34-2.MP4",
+    "20241015 - 12h41.MP4",
+    "20241015 - 12h46.MP4",
+    "20241016 - 06h58.MP4",
+    "20241016 - 07h06.MP4",
+    "20241016 - 07h58.MP4",
+    "20241016 - 08h15.MP4",
+    "20241017 - 12h14.MP4",
+    "20241102 - 10h35.MP4"
+]
+
+video_paths = [f"{folder_path}/{i}" for i in videos]
+
+for video_path in video_paths: extract_frames(video_path, output_folder, 50)
