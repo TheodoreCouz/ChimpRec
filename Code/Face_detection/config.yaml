@@ -1,0 +1,6 @@
+path: C:/Users/julie/Documents/Unif/Mémoire/final_face_detection_dataset
+train: images/train
+val: images/val
+
+names:
+  0: Face
