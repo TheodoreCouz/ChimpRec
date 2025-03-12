@@ -1,0 +1,7 @@
+path: C:/Users/Theo/Documents/Unif/detection_test_set
+train: images  # Dummy path (not used)
+val: images    # Dummy path (not used)
+test: images
+nc: 1  # Number of classes
+names:
+  0: body
