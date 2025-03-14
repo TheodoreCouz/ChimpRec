@@ -1,4 +1,4 @@
-path: /home/theo/Documents/Unif/Master/ChimpRec/ChimpRec-Dataset/Chimpanzee_detection_dataset
+path: C:/Users/Theo/Documents/Unif/detection dataset
 train: images/train
 val: images/val
 
