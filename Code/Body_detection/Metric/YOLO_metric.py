@@ -1,9 +1,12 @@
 from ultralytics import YOLO
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Load your trained YOLO model
-model_path = "C:/Users/Theo/Documents/Unif/Models/body/v8s/weights/best.pt"  # Update with your model path
-yaml_file = "C:/Users/Theo/Documents/Unif/ChimpRec/Code/Body_detection/Metric/config.yaml"
+# model_path = "C:/Users/Theo/Documents/Unif/Models/body/v8s/weights/best.pt"  # Update with your model path
+# yaml_file = "C:/Users/Theo/Documents/Unif/ChimpRec/Code/Body_detection/Metric/config.yaml"
+model_path = "/home/theo/Documents/Unif/Master/body/v8s/weights/best.pt"
+yaml_file = "/home/theo/Documents/Unif/Master/ChimpRec/Code/Body_detection/Metric/config.yaml"
 model = YOLO(model_path)
 
 def get_metric(t):
@@ -50,4 +53,6 @@ if __name__ == "__main__":
         data[i] = (precision, recall)
         n_pred = 0
     
+    df = pd.DataFrame(data, ["t", "precision", "recall"])
+    df.to_csv("PR_v8s.csv")
     plot_data(data)
