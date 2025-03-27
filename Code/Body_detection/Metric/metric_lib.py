@@ -1,13 +1,23 @@
 import os
 import cv2
-from ultralytics import YOLO
 import matplotlib.pyplot as plt
+from ultralytics import YOLO
 import math
+import pandas as pd
+import numpy as np
 
+model_path = "C:/Users/Theo/Documents/Unif/Models/body/"
 test_set = "C:/Users/Theo/Documents/Unif/detection_test_set"
-model_path = "C:/Users/Theo/Documents/Unif/Models/body/v8s/weights/best.pt"
-# test_set = "C:/Users/julie/OneDrive - UCL/Master_2/Mémoire/Chimprec Dataset/ChimpRec Detection/Test set"
-# model_path = "C:/Users/julie/OneDrive - UCL/Master_2/Mémoire/ChimpRec/Code/Body_detection/YOLO_small/runs/detect/train9/weights/best.pt"
+models = [
+    "v8n",
+    "v8s",
+    "v10n",
+    "v10s",
+    "v10m"
+]
+
+def weight(bbox_size, a=1.6, b=18):
+    return -(a-1)*math.tanh(b*bbox_size)+a
 
 def yolo_to_relative_coord(bbox, img_dim):
     """
@@ -60,6 +70,17 @@ def convert_to_yolo(bbox, img_dim=(1080, 1920)):
 
     return [x_center, y_center, width, height]
 
+def get_intersection(bbox1, bbox2, img_dim=(1080, 1920)):
+    Ax, Ay, Bx, By = yolo_to_relative_coord(bbox1, img_dim)
+    Cx, Cy, Dx, Dy = yolo_to_relative_coord(bbox2, img_dim)
+
+    # computation of the intersection
+    x_overlap = min(Dx, Bx) - max(Ax, Cx)
+    y_overlap = min(Dy, By) - max(Ay, Cy)
+    if (x_overlap < 0 or y_overlap < 0): return 0 # no overlap case
+    intersection = x_overlap*y_overlap
+    return intersection
+
 """
 input:
 bbox1, bbox2: bounding boxes in YOLO format
@@ -77,11 +98,7 @@ def iou(bbox1, bbox2, img_dim=(1080, 1920)):
     Ax, Ay, Bx, By = yolo_to_relative_coord(bbox1, img_dim)
     Cx, Cy, Dx, Dy = yolo_to_relative_coord(bbox2, img_dim)
 
-    # computation of the intersection
-    x_overlap = min(Dx, Bx) - max(Ax, Cx)
-    y_overlap = min(Dy, By) - max(Ay, Cy)
-    if (x_overlap < 0 or y_overlap < 0): return 0 # no overlap case
-    intersection = x_overlap*y_overlap
+    intersection = get_intersection(bbox1, bbox2, img_dim)
 
     # computation of the union
     area_1 = abs((Bx-Ax)*(By-Ay))
@@ -109,12 +126,9 @@ def area_covered(bbox, img_dim):
 
     return bbox_area / image_area
 
-def weight(bbox_size):
+def weight(bbox_size, a=1.6, b=18):
+    return -(a-1)*math.tanh(b*bbox_size)+a
 
-    def h(x):
-        return 0.4 * math.tanh(60*x - 0.4) + 0.5
-    
-    return 1/h(bbox_size) - 0.112
 
 """
 The arguments <ground_truths> and <predictions> are expected to be 
@@ -179,7 +193,7 @@ def extract_metrics(ground_truths:dict, predictions:dict, t=0.75):
             
             # Compare prediction with each ground truth bbox
             for i, gt in enumerate(gt_bboxes):
-                score = weighted_iou(pred, gt)  # Compute IoU
+                score = weighted_iou(pred, gt)  # Compute IoU including the weighing
                 if score > best_iou:  # Update best match if IoU is higher
                     best_iou = score
                     best_gt_idx = i
@@ -197,8 +211,8 @@ def extract_metrics(ground_truths:dict, predictions:dict, t=0.75):
     
     return {"true_positives": tp, "false_positives": fp, "false_negatives": fn}
 
-def extract_ground_truth(test_set_path = test_set):
-    path = f'{test_set_path}/labels_not_filtered'
+def extract_ground_truth(test_set_path = test_set, class_filtered=[]):
+    path = f'{test_set_path}/labels'
     data = dict()
 
     # check whether the specified path is valid directory
@@ -220,13 +234,12 @@ def extract_ground_truth(test_set_path = test_set):
                 for line in file.readlines():
                     splitted = line.split(" ")
                     detection_class = splitted[0]
-                    if (int(detection_class) == 0):
+                    if (detection_class in class_filtered):
                         continue # abort iteration if the class is a face
                     bbox = splitted[1:]
                     for i in range(len(bbox)): bbox[i] = float(bbox[i].strip("/n"))
                     data[textfile.strip(".txt")].append(bbox)
                 file.close()
-    
     return data
 
 def predict(model_path, test_set_path, t_confidence = 0.4):
@@ -286,43 +299,101 @@ def predict(model_path, test_set_path, t_confidence = 0.4):
 
     return predictions
 
+def merge_boxes(predictions, merging_threshold, img_dim=(1080, 1920)):
+    """
+    Merge the bboxes that overlap too much.
 
+    Args:
+        predictions (dict): Dict of the predicted bboxes for each image of the dataset.
+        merging_threshold (float): Minimum proportion of overlap needed to merge two bboxes.
+        img_dim (tuple): Dimension of the image.
 
-def extract_metrics(ground_truths:dict, predictions:dict, t=0.75):
-    tp, fp, fn = 0, 0, 0  # Initialize counters for TP, FP, and FN
-    
-    # Iterate over all unique image names in ground truths and predictions
-    for image_name in set(ground_truths.keys()).union(predictions.keys()):
-        gt_bboxes = ground_truths.get(image_name, [])  # Retrieve ground truth bboxes (default empty list if missing)
-        pred_bboxes = predictions.get(image_name, [])  # Retrieve predicted bboxes (default empty list if missing)
-        
-        matched_gt = set()  # Store indices of matched ground truth bboxes
-        pred_matched_scores = []  # Keep track of IoU scores of matched predictions
-        
-        # Iterate over each predicted bounding box
-        for pred in pred_bboxes:
-            best_iou = 0  # Initialize the best IoU score for the current prediction
-            best_gt_idx = -1  # Index of the best-matching ground truth bbox
-            
-            # Compare prediction with each ground truth bbox
-            for i, gt in enumerate(gt_bboxes):
-                score = iou(pred, gt)  # Compute IoU
-                if score > best_iou:  # Update best match if IoU is higher
-                    best_iou = score
-                    best_gt_idx = i
-            
-            # Determine if the prediction is a TP or FP based on IoU and previous matches
-            if best_iou >= t and best_gt_idx not in matched_gt:
-                matched_gt.add(best_gt_idx)  # Mark ground truth bbox as matched
-                pred_matched_scores.append(best_iou)  # Store IoU score
-                tp += 1
-            else:
-                fp += 1
-        
-        # Count False Negatives (ground truths that were not matched)
-        fn += len(gt_bboxes) - len(matched_gt)
-    
-    return {"true_positives": tp, "false_positives": fp, "false_negatives": fn}
+    Returns:
+        dict: Dictionary with image prefixes as keys and predicted bounding boxes (YOLO format) merged when needed.
+    """
+    new_dict_predictions = {}
+    for file in predictions: 
+        new_predictions = []
+        prediction = predictions[file]
+
+        for pred1 in prediction: 
+            Ax, Ay, Bx, By = yolo_to_relative_coord(pred1, img_dim)
+            area1 = (Bx - Ax) * (By - Ay)
+
+            for pred2 in new_predictions: 
+                inter = get_intersection(pred1, pred2, img_dim)
+                
+                Cx, Cy, Dx, Dy = yolo_to_relative_coord(pred2, img_dim)
+                area2 = (Dx - Cx) * (Dy - Cy)
+                if inter / area1 > merging_threshold or inter / area2 > merging_threshold:        
+                    # Fusion des coordonnées
+                    Ax, Ay = min(Ax, Cx), min(Ay, Cy)
+                    Bx, By = max(Bx, Dx), max(By, Dy)
+                    new_predictions.remove(pred2)
+            new_predictions.append(tuple(convert_to_yolo((Ax, Ay, Bx, By), img_dim)))
+        new_dict_predictions[file] = new_predictions
+    return new_dict_predictions
+
+def draw_predictions(predictions, ground_truth, test_set_path, output_folder):
+    """
+    Draws predicted and ground truth bounding boxes on images and displays them in Jupyter Notebook.
+
+    Args:
+        predictions (dict): Dictionary of predicted bounding boxes in YOLO format.
+        ground_truth (dict): Dictionary of ground truth bounding boxes in YOLO format.
+        test_set_path (str): Path to the test set directory.
+
+    Returns:
+        None
+    """
+    test_set_path = f"{test_set_path}/images"
+
+    for img_prefix, pred_bboxes in predictions.items():
+        img_name = f"{img_prefix}.png"
+        img_path = os.path.join(test_set_path, img_name)
+        output_path = os.path.join(output_folder, img_name)
+
+        # Load image
+        image = cv2.imread(img_path)
+        if image is None:
+            print(f"Error: Unable to load image {img_name}")
+            continue
+
+        # Convert from BGR to RGB for correct color display
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        img_height, img_width, _ = image.shape
+
+        def draw_bbox(image, bbox, color, label=None):
+            """ Draws a single bounding box on the image. """
+            x_center, y_center, width, height = bbox
+
+            # Convert YOLO format to absolute pixel coordinates
+            x1 = int((x_center - width / 2) * img_width)
+            y1 = int((y_center - height / 2) * img_height)
+            x2 = int((x_center + width / 2) * img_width)
+            y2 = int((y_center + height / 2) * img_height)
+
+            # Draw rectangle
+            cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+
+            # Put label
+            if label:
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.5
+                thickness = 1
+                cv2.putText(image, label, (x1, max(y1 - 5, 10)), font, font_scale, color, thickness, cv2.LINE_AA)
+
+        # Draw ground truth boxes (green)
+        if img_prefix in ground_truth:
+            for bbox in ground_truth[img_prefix]:
+                draw_bbox(image, bbox, (0, 255, 0))  # Class label only
+
+        # Draw predicted boxes (blue)
+        for bbox in pred_bboxes:
+            draw_bbox(image, bbox, (255, 0, 0), f"P {int(bbox[0])}")  # Class & confidence
+
+        image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(output_path, image_bgr)
 
 def draw_categorised_predictions(predictions, ground_truth, test_set_path, iou_threshold=0.75, output_folder=""):
     """
@@ -505,12 +576,13 @@ def draw_uncategorised_predictions(predictions, ground_truth, test_set_path, iou
 
         cv2.imwrite(output_path, image_bgr)
 
-if __name__ == "__main__":
-    t = 0.6
-    t_confidence = 0.35
-    merging_threshold = 0.8
+# # code to launch draw bboxes: 
+# if __name__ == "__main__":
+#     t = 0.6
+#     t_confidence = 0.35
+#     merging_threshold = 0.8
 
-    GT = extract_ground_truth()
-    predictions = predict(model_path, test_set, t_confidence=t_confidence)
-    draw_categorised_predictions(predictions, GT, test_set, output_folder="annotated_visualisation")
-    draw_uncategorised_predictions(predictions, GT, test_set, output_folder="visualisation")
+#     GT = extract_ground_truth()
+#     predictions = predict(model_path, test_set, t_confidence=t_confidence)
+#     draw_categorised_predictions(predictions, GT, test_set, output_folder="annotated_visualisation")
+#     draw_uncategorised_predictions(predictions, GT, test_set, output_folder="visualisation")
