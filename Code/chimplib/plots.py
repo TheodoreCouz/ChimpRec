@@ -1,4 +1,7 @@
-from metric_lib import *
+import sys
+sys.path.append("C:\\Users\\Theo\\Documents\\Unif\\ChimpRec\\Code")
+
+from chimplib.metric import *
 
 def plot_weight(f):
     # Generate x values in the range [0, 1]

@@ -1,10 +1,7 @@
-import os
-import cv2
-import matplotlib.pyplot as plt
-from ultralytics import YOLO
-import math
-import pandas as pd
-import numpy as np
+import sys
+sys.path.append("C:\\Users\\Theo\\Documents\\Unif\\ChimpRec\\Code")
+
+from chimplib.imports import *
 
 model_path = "C:/Users/Theo/Documents/Unif/Models/body/"
 test_set = "C:/Users/Theo/Documents/Unif/detection_test_set"
@@ -575,6 +572,8 @@ def draw_uncategorised_predictions(predictions, ground_truth, test_set_path, iou
         image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
         cv2.imwrite(output_path, image_bgr)
+
+def test(): print("hello world!")
 
 # # code to launch draw bboxes: 
 # if __name__ == "__main__":
