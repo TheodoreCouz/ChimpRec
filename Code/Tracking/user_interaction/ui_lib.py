@@ -89,6 +89,19 @@ def edit_raw_output(RTD_reader, S1M_reader):
 
     return modified_data
 
+def draw_bbox_from_file(file_path, input_video_path, output_video_path):
+    """
+    draw the bounding boxes and class_id contained in <file_path>
+    On the input video located at <input_video_path>
+    The output video must be saved at <output_video_path>
+    """
+
+def perform_tracking(input_video_path, output_text_file_path):
+    """
+    Performs the tracking on <input_video_path>
+    Saves the bounding boxes metadata whithin <output_text_file_path>
+    """
+
 if __name__ == "__main__":
     raw_path = "Code/Tracking/user_interaction/raw_output.txt"
     edit_path = "Code/Tracking/user_interaction/edit_stage1.txt"
