@@ -61,6 +61,7 @@ class data_writer:
                 block_string = "#\n"
                 for line in block:
                     block_string = f"{block_string}{line[0]} {line[1]} {line[2]} {line[3]} {line[4]}\n"
+                if block_string == "#\n": block_string = f"{block_string}\n"
                 output_file.write(block_string)
             output_file.close()
 
