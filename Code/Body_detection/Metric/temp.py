@@ -31,7 +31,5 @@ def plot(builtin, custom, colors, metric):
     plt.savefig(f"plots/{metric}_comparison.svg", format="svg")
     plt.show()
 
-plot(P_builtin, P_custom, ("mediumvioletred", "rebeccapurple"), "Precision")
-plot(R_builtin, R_custom, ("steelblue", "navy"), "Recall")
-
-
+# plot(P_builtin, P_custom, ("mediumvioletred", "rebeccapurple"), "Precision")
+# plot(R_builtin, R_custom, ("steelblue", "navy"), "Recall")
