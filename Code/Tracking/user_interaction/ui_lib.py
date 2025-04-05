@@ -17,6 +17,49 @@ from deep_sort.deep_sort.detection import Detection
 from deep_sort.deep_sort.tracker import Tracker as DeepSortTracker
 from deep_sort.deep_sort import nn_matching
 
+colors = [
+    (120, 50, 99),
+    (180, 25, 16),
+    (73, 89, 176),
+    (200, 158, 18),
+    (199, 214, 152),
+    (181, 37, 229),
+    (118, 73, 165),
+    (136, 3, 53),
+    (40, 47, 142),
+    (246, 26, 168),
+    (33, 83, 190),
+    (151, 220, 243),
+    (156, 122, 217),
+    (173, 0, 128),
+    (61, 242, 230),
+    (37, 10, 125),
+    (64, 229, 201),
+    (64, 137, 49),
+    (136, 225, 85),
+    (146, 80, 77),
+    (255, 0, 0),
+    (0, 255, 0),
+    (0, 0, 255),
+    (255, 255, 0),
+    (0, 255, 255),
+    (255, 0, 255),
+    (255, 165, 0),
+    (255, 255, 255),
+    (0, 0, 0),
+    (128, 0, 0),
+    (0, 128, 0),
+    (128, 128, 0),
+    (0, 128, 128),
+    (128, 0, 128),
+    (255, 105, 180),
+    (255, 69, 0),
+    (34, 139, 34),
+    (70, 130, 180),
+    (255, 228, 225),
+    (218, 165, 32)
+]
+
 class raw_tracking_data_reader():
     """
     This class reads the output file generated 
@@ -124,7 +167,7 @@ def edit_raw_output(RTD_reader, M_reader):
 def draw_bbox(image, color, bbox, label):
     x1, y1, x2, y2 = map(lambda v: int(float(v)), bbox)
     factor = 0.65 if label == "Face" else 0.3
-    font_scale = max(0.4, (x2 - x1 + y2 - y1) / 300) * factor
+    font_scale = max(0.65, ((x2 - x1 + y2 - y1) / 300) * factor)
 
     cv2.rectangle(image, (x1, y1), (x2, y2), color, 4)
     label_text = f"{label}"#: {score:.2f}"
@@ -137,7 +180,7 @@ def draw_bbox(image, color, bbox, label):
     cv2.putText(image, label_text, (x2 - w - 5, y2 - 5), cv2.FONT_HERSHEY_COMPLEX, font_scale, (255,255,255), 1)
     return image
 
-def draw_bbox_from_file(file_path, input_video_path, output_video_path, colors):
+def draw_bbox_from_file(file_path, input_video_path, output_video_path):
     """
     draw the bounding boxes and class_id contained in <file_path>
     On the input video located at <input_video_path>
@@ -259,46 +302,3 @@ def perform_tracking(input_video_path, output_text_file_path, detection_model, t
     file_improve_tracking.close()
     cap.release()
     cv2.destroyAllWindows()   
-
-colors = [
-    (120, 50, 99),
-    (180, 25, 16),
-    (73, 89, 176),
-    (200, 158, 18),
-    (199, 214, 152),
-    (181, 37, 229),
-    (118, 73, 165),
-    (136, 3, 53),
-    (40, 47, 142),
-    (246, 26, 168),
-    (33, 83, 190),
-    (151, 220, 243),
-    (156, 122, 217),
-    (173, 0, 128),
-    (61, 242, 230),
-    (37, 10, 125),
-    (64, 229, 201),
-    (64, 137, 49),
-    (136, 225, 85),
-    (146, 80, 77),
-    (255, 0, 0),
-    (0, 255, 0),
-    (0, 0, 255),
-    (255, 255, 0),
-    (0, 255, 255),
-    (255, 0, 255),
-    (255, 165, 0),
-    (255, 255, 255),
-    (0, 0, 0),
-    (128, 0, 0),
-    (0, 128, 0),
-    (128, 128, 0),
-    (0, 128, 128),
-    (128, 0, 128),
-    (255, 105, 180),
-    (255, 69, 0),
-    (34, 139, 34),
-    (70, 130, 180),
-    (255, 228, 225),
-    (218, 165, 32)
-]
