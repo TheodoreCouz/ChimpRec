@@ -1,4 +1,7 @@
 import sys
+sys.path.append("C:\\Users\\Theo\\Documents\\Unif")
+
+import sys
 import os
 import cv2
 import numpy as np
@@ -37,8 +40,9 @@ class raw_tracking_data_reader():
                 parsed_content.append(block)
             text_file.close()
         self.data = parsed_content
+        # for i in self.data: print(i)
 
-class stage_1_modification_reader:
+class modification_reader:
     """
     This class reads a modification file (stage 1).
     And structures what has been read in a standardised
@@ -50,12 +54,20 @@ class stage_1_modification_reader:
 
     def read(self):
         parsed_content = []
+        unknown_id_index = 0
         with open(self.text_file_path, 'r') as text_file:
             text_content = text_file.read()
             splitted_content = text_content.split("\n")
             for i in splitted_content:
                 if len(i) < 1: continue
-                parsed_content.append(i.split(" "))
+                if (":" in i): # name is present
+                    name = i.split(": ")[0]
+                    parsed_content.append([name, i.split(": ")[1].split(" ")])
+                else:
+                    name = f"UNK_{unknown_id_index}"
+                    parsed_content.append([name, i.split(" ")])
+                    unknown_id_index += 1
+                    
             text_file.close()
         self.data = parsed_content
 
@@ -81,7 +93,7 @@ class data_writer:
                 output_file.write(block_string)
             output_file.close()
 
-def edit_raw_output(RTD_reader, S1M_reader):
+def edit_raw_output(RTD_reader, M_reader):
     """
     returns the modified structure to be written in
     a new file. By taking into account the modifications
@@ -93,13 +105,16 @@ def edit_raw_output(RTD_reader, S1M_reader):
         new_block = []
         for line in block:
             class_id = line[0]
+            label = ""
+            keep = False
 
-            for i in S1M_reader.data:
-                if class_id in i and i[0] != class_id:
-                    class_id = i[0]
+            for name, ids in M_reader.data:
+                if class_id in ids:
+                    keep = True
+                    label = name
 
-            new_line = [class_id] + line[1:]
-            if len(new_line) != 5: continue
+            new_line = [label] + line[1:]
+            if len(new_line) != 5 or not keep: continue
             new_block.append(new_line)
             
         modified_data.append(new_block)
@@ -136,38 +151,35 @@ def draw_bbox_from_file(file_path, input_video_path, output_video_path, colors):
     fps = cap.get(cv2.CAP_PROP_FPS)
     out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
 
-    file_improve_tracking = open(file_path, "r")
-    bbox_per_frame = file_improve_tracking.read().split("#")
-    colors_used = {}
+    reader = raw_tracking_data_reader(file_path)
     frame_number = 0
-    while ret: 
-        #print(frame_number)
-        bboxes = bbox_per_frame[frame_number].split("\n")
+
+    color_index = 0
+    colors_used = {}
+    seen_names = set()
+
+    while ret:
+        if len(reader.data) <= frame_number: break
+        bboxes = reader.data[frame_number]
         if len(bboxes) == 1 and bboxes[0] == '': 
             frame_number+=1
             continue
         
-        id_in_frame = []
         for id_bbox in bboxes: 
-            if id_bbox == '': continue
-            id, x1, y1, x2, y2 = id_bbox.split(" ")
+            if len(id_bbox) <= 1: continue
+            name, x1, y1, x2, y2 = id_bbox
             bbox = x1, y1, x2, y2
-            id_in_frame.append(id)
-            if id not in colors_used.keys(): 
-                colors_used[id] = colors.pop(0) 
-            
-            draw_bbox(frame, colors_used[id], bbox, f"Chimp n°{id}")
+            if name not in seen_names:
+                seen_names.add(name)
+                colors_used[name] = colors[color_index]
+                color_index = (color_index + 1)%len(colors)
 
-        for id in list(colors_used.keys()):
-            if id not in id_in_frame: 
-                colors.append(colors_used[id])
-                colors_used.pop(id)
+            draw_bbox(frame, colors_used[name], bbox, name)
 
         out.write(frame)
 
         frame_number += 1
         ret, frame = cap.read()
-    file_improve_tracking.close()
 
 def extract_features_osnet(frame, bbox, model_feature_extraction):
     """Extrait les features d'un chimpanzé avec OSNet (permet à DeepSORT d'utiliser aussi l'apparence de l'objet en plus de la position, ...)"""
@@ -203,6 +215,7 @@ def perform_tracking(input_video_path, output_text_file_path, detection_model, t
         print(frame_number)
         file_improve_tracking.write("#\n")
         predictions = detection_model.predict(frame, verbose=False)[0]
+        modified = False
         
         #On ne garde que les détections de bboxes qui ont une confiance suppérieur à 0.2
         detections = []
@@ -237,7 +250,9 @@ def perform_tracking(input_video_path, output_text_file_path, detection_model, t
             # Ecrire la bounding box avec l'ID du chimpanzé
             str_bbox = ' '.join(map(str, bbox))
             file_improve_tracking.write(f"{track_id} {str_bbox}\n")
+            modified = True
 
+        if not modified: file_improve_tracking.write("\n")
         ret, frame = cap.read()
         frame_number += 1
 
@@ -245,78 +260,45 @@ def perform_tracking(input_video_path, output_text_file_path, detection_model, t
     cap.release()
     cv2.destroyAllWindows()   
 
-if __name__ == "__main__":
-    raw_path = "Code/Tracking/user_interaction/raw_output.txt"
-    edit_path = "Code/Tracking/user_interaction/edit_stage1.txt"
-    output_path = "Code/Tracking/user_interaction/output_stage_1.txt"
-
-    raw_reader = raw_tracking_data_reader(raw_path)
-    edit_reader = stage_1_modification_reader(edit_path)
-    writer = data_writer(output_path)
-
-    modified_data = edit_raw_output(raw_reader, edit_reader)  
-    writer.write(modified_data)
-
-
-    """
-    detection_model = YOLO("C:/Users/julie/OneDrive - UCL/Master_2/Mémoire/Chimprec Dataset/Models/body/v8s/weights/best.pt")
-    input_video_path = "C:/Users/julie/Documents/Unif/Mémoire/tracking_video_test2.mp4"
-    output_text_file_path = "C:/Users/julie/Documents/Unif/Mémoire/tracking_improvement2.txt"
-    output_video_path = "C:/Users/julie/Documents/Unif/Mémoire/output_tracking2.mp4"
-
-    model_feature_extraction = torchreid.models.build_model(name='osnet_x1_0', num_classes=751, pretrained=True)
-    model_feature_extraction.eval()
-
-    # Paramètres de DeepSORT
-    max_cosine_distance = 0.5  # Distance max pour matcher un objet (plus bas = plus strict)
-    nn_budget = None  # Taille max du buffer pour le modèle d'appariement
-    metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
-    # Initialiser DeepSORT
-    tracker = DeepSortTracker(metric)
-
-    colors = [
-        (120, 50, 99),
-        (180, 25, 16),
-        (73, 89, 176),
-        (200, 158, 18),
-        (199, 214, 152),
-        (181, 37, 229),
-        (118, 73, 165),
-        (136, 3, 53),
-        (40, 47, 142),
-        (246, 26, 168),
-        (33, 83, 190),
-        (151, 220, 243),
-        (156, 122, 217),
-        (173, 0, 128),
-        (61, 242, 230),
-        (37, 10, 125),
-        (64, 229, 201),
-        (64, 137, 49),
-        (136, 225, 85),
-        (146, 80, 77),
-        (255, 0, 0),
-        (0, 255, 0),
-        (0, 0, 255),
-        (255, 255, 0),
-        (0, 255, 255),
-        (255, 0, 255),
-        (255, 165, 0),
-        (255, 255, 255),
-        (0, 0, 0),
-        (128, 0, 0),
-        (0, 128, 0),
-        (128, 128, 0),
-        (0, 128, 128),
-        (128, 0, 128),
-        (255, 105, 180),
-        (255, 69, 0),
-        (34, 139, 34),
-        (70, 130, 180),
-        (255, 228, 225),
-        (218, 165, 32)
-    ]
-
-    perform_tracking(input_video_path, output_text_file_path, detection_model, tracker, 0.5, model_feature_extraction)
-    draw_bbox_from_file(output_text_file_path, input_video_path, output_video_path, colors)
-    """
+colors = [
+    (120, 50, 99),
+    (180, 25, 16),
+    (73, 89, 176),
+    (200, 158, 18),
+    (199, 214, 152),
+    (181, 37, 229),
+    (118, 73, 165),
+    (136, 3, 53),
+    (40, 47, 142),
+    (246, 26, 168),
+    (33, 83, 190),
+    (151, 220, 243),
+    (156, 122, 217),
+    (173, 0, 128),
+    (61, 242, 230),
+    (37, 10, 125),
+    (64, 229, 201),
+    (64, 137, 49),
+    (136, 225, 85),
+    (146, 80, 77),
+    (255, 0, 0),
+    (0, 255, 0),
+    (0, 0, 255),
+    (255, 255, 0),
+    (0, 255, 255),
+    (255, 0, 255),
+    (255, 165, 0),
+    (255, 255, 255),
+    (0, 0, 0),
+    (128, 0, 0),
+    (0, 128, 0),
+    (128, 128, 0),
+    (0, 128, 128),
+    (128, 0, 128),
+    (255, 105, 180),
+    (255, 69, 0),
+    (34, 139, 34),
+    (70, 130, 180),
+    (255, 228, 225),
+    (218, 165, 32)
+]
