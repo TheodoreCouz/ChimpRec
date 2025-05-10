@@ -172,7 +172,7 @@ bboxes has a high IoU (above a given threshold <t>):
 The true negative won't be counted because it means that no
 prediction bbox has been found in the background. This is nonsense to count this.
 """
-def extract_metrics(ground_truths:dict, predictions:dict, t=0.75):
+def extract_metrics(ground_truths:dict, predictions:dict, t=0.75, score_fct=weighted_iou):
     tp, fp, fn = 0, 0, 0  # Initialize counters for TP, FP, and FN
     
     # Iterate over all unique image names in ground truths and predictions
@@ -190,7 +190,7 @@ def extract_metrics(ground_truths:dict, predictions:dict, t=0.75):
             
             # Compare prediction with each ground truth bbox
             for i, gt in enumerate(gt_bboxes):
-                score = weighted_iou(pred, gt)  # Compute IoU including the weighing
+                score = score_fct(pred, gt)  # Compute IoU including the weighting
                 if score > best_iou:  # Update best match if IoU is higher
                     best_iou = score
                     best_gt_idx = i
@@ -208,17 +208,23 @@ def extract_metrics(ground_truths:dict, predictions:dict, t=0.75):
     
     return {"true_positives": tp, "false_positives": fp, "false_negatives": fn}
 
-def extract_ground_truth(test_set_path = test_set, class_filtered=[]):
-    path = f'{test_set_path}/labels'
+def extract_ground_truth(test_set_path_labels = f"{test_set}/labels", test_set_path_images = f"{test_set}/images", class_filtered=[]):
     data = dict()
 
     # check whether the specified path is valid directory
-    if not os.path.isdir(path):
-        print(f"Error: {path} is not a valid directory.")
+    if not os.path.isdir(test_set_path_labels):
+        print(f"Error: {test_set_path_labels} is not a valid directory.")
         return
     
-    for textfile in os.listdir(path):
-        file_path = f"{path}/{textfile}"
+    image_extension = ".png"
+    image_files = os.listdir(test_set_path_images)
+
+    for textfile in os.listdir(test_set_path_labels):
+
+        file_path = f"{test_set_path_labels}/{textfile}"
+        if (f"{textfile.strip('.txt')}{image_extension}" not in image_files):
+            continue
+
 
         # check whether textfile exists in the folder located at the specified path
         if os.path.isfile(file_path):
@@ -226,7 +232,6 @@ def extract_ground_truth(test_set_path = test_set, class_filtered=[]):
 
             # open the file in read mode
             with open(file_path, 'r') as file:
-
                 # extract the bounding boxes one by one
                 for line in file.readlines():
                     splitted = line.split(" ")
@@ -239,7 +244,7 @@ def extract_ground_truth(test_set_path = test_set, class_filtered=[]):
                 file.close()
     return data
 
-def predict(model_path, test_set_path, t_confidence = 0.4):
+def predict(model_path, test_set_path_images, t_confidence = 0.4):
     """
     Predict bounding boxes using a YOLO model.
 
@@ -255,17 +260,17 @@ def predict(model_path, test_set_path, t_confidence = 0.4):
     # Load the YOLO model
     model = YOLO(model_path)
 
-    test_set_path = f"{test_set_path}/images"
-
     # Ensure the test set path exists
-    if not os.path.isdir(test_set_path):
-        print(f"Error: Test set directory '{test_set_path}' not found.")
+    if not os.path.isdir(test_set_path_images):
+        print(f"Error: Test set directory '{test_set_path_images}' not found.")
         return {}
 
     # Iterate over all images in the test set directory
     image_extension = ".png"
-    for filename in sorted(os.listdir(test_set_path)):
-        file_path = os.path.join(test_set_path, filename)
+
+    for filename in sorted(os.listdir(test_set_path_images)):
+
+        file_path = os.path.join(test_set_path_images, filename)
 
         # Check if the file is an image
         if not filename.lower().endswith(image_extension):
@@ -331,7 +336,7 @@ def merge_boxes(predictions, merging_threshold, img_dim=(1080, 1920)):
         new_dict_predictions[file] = new_predictions
     return new_dict_predictions
 
-def draw_predictions(predictions, ground_truth, test_set_path, output_folder):
+def draw_predictions(predictions, ground_truth, test_set_path_images, output_folder, n_frames):
     """
     Draws predicted and ground truth bounding boxes on images and displays them in Jupyter Notebook.
 
@@ -343,11 +348,10 @@ def draw_predictions(predictions, ground_truth, test_set_path, output_folder):
     Returns:
         None
     """
-    test_set_path = f"{test_set_path}/images"
 
     for img_prefix, pred_bboxes in predictions.items():
         img_name = f"{img_prefix}.png"
-        img_path = os.path.join(test_set_path, img_name)
+        img_path = os.path.join(test_set_path_images, img_name)
         output_path = os.path.join(output_folder, img_name)
 
         # Load image
@@ -413,7 +417,6 @@ def draw_categorised_predictions(predictions, ground_truth, test_set_path, iou_t
     color_FP = (129, 82, 238)
 
     test_set_path = f"{test_set_path}/images"
-    index = 0
 
     for img_prefix, pred_bboxes in predictions.items():
         img_name = f"{img_prefix}.png"
