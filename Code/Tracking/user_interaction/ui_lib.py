@@ -93,6 +93,7 @@ class modification_reader:
     """
     def __init__(self, text_file_path):
         self.text_file_path = text_file_path
+        self.swaps = {}
         self.read()
 
     def read(self):
@@ -105,6 +106,13 @@ class modification_reader:
                 if len(i) < 1: continue
                 if (":" in i): # name is present
                     name = i.split(": ")[0]
+                    if name.upper() == "SWAP": # storing the swap data
+                        frame_count, swap_id_1, swap_id_2 = i.split(": ")[1].split(" ")
+                        if (swap_id_1 in self.swaps.keys()): self.swaps[swap_id_1].append((frame_count, swap_id_2))
+                        else: self.swaps[swap_id_1] = [(frame_count, swap_id_2)]
+                        if (swap_id_2 in self.swaps.keys()): self.swaps[swap_id_2].append((frame_count, swap_id_1))
+                        else: self.swaps[swap_id_2] = [(frame_count, swap_id_1)]
+                        continue
                     parsed_content.append([name, i.split(": ")[1].split(" ")])
                 else:
                     name = f"UNK_{unknown_id_index}"
@@ -144,12 +152,18 @@ def edit_raw_output(RTD_reader, M_reader):
     """
     modified_data = []
 
-    for block in RTD_reader.data:
+    for current_frame, block in enumerate(RTD_reader.data):
         new_block = []
         for line in block:
             class_id = line[0]
             label = ""
             keep = False
+
+            if class_id in M_reader.swaps.keys():
+                for frame_index, other_id in M_reader.swaps[class_id]:
+                    if (current_frame >= int(frame_index)): 
+                        class_id = other_id
+                        break
 
             for name, ids in M_reader.data:
                 if class_id in ids:
@@ -161,7 +175,6 @@ def edit_raw_output(RTD_reader, M_reader):
             new_block.append(new_line)
             
         modified_data.append(new_block)
-
     return modified_data
 
 def draw_bbox(image, color, bbox, label):
@@ -180,7 +193,49 @@ def draw_bbox(image, color, bbox, label):
     cv2.putText(image, label_text, (x2 - w - 5, y2 - 5), cv2.FONT_HERSHEY_COMPLEX, font_scale, (255,255,255), 1)
     return image
 
-def draw_bbox_from_file(file_path, input_video_path, output_video_path):
+def draw_triangle(image, color, bbox, label):
+
+    x1, y1, x2, y2 = map(lambda v: int(float(v)), bbox)    
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+    (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_COMPLEX, 0.8, 1)
+
+    # Triangle dimensions
+    triangle_height = 20
+    triangle_width = 20
+
+    # Tip of triangle at the middle of the top edge of the bounding box
+    tip_x = (x1 + x2) // 2
+    tip_y = max(y1, text_height + triangle_height + 5)
+
+    # Base is ABOVE the tip (Y decreases upward)
+    base_y = tip_y - triangle_height
+    half_base = triangle_width // 2
+
+    pt_tip = (tip_x, tip_y)
+    pt_left = (tip_x - half_base, base_y)
+    pt_right = (tip_x + half_base, base_y)
+
+    triangle = np.array([pt_tip, pt_left, pt_right], dtype=np.int32).reshape((-1, 1, 2))
+
+    # Draw filled triangle
+    cv2.fillPoly(image, [triangle], color)
+
+    # Text position: centered horizontally, inside triangle
+    text_x = tip_x - text_width // 2
+    text_y = base_y + (triangle_height // 2) - triangle_height
+
+    # Draw transparent rectangle using overlay
+    overlay = image.copy()
+    cv2.rectangle(overlay, (text_x - 5, text_y - text_height - 5), (text_x + text_width + 5, text_y + 5), color, -1)
+    alpha = 0.6  # Transparency factor
+    cv2.addWeighted(overlay, alpha, image, 1-alpha, 0, image)
+
+    # Draw label text on top
+    cv2.putText(image, label, (text_x, text_y), cv2.FONT_HERSHEY_COMPLEX, 0.8, (255, 255, 255), 1)
+
+    return image
+
+def draw_bbox_from_file(file_path, input_video_path, output_video_path, annotation_type = "bbox", draw_frame_count = False):
     """
     draw the bounding boxes and class_id contained in <file_path>
     On the input video located at <input_video_path>
@@ -202,6 +257,7 @@ def draw_bbox_from_file(file_path, input_video_path, output_video_path):
     seen_names = set()
 
     while ret:
+        if frame_number >= 100: break
         if len(reader.data) <= frame_number: break
         bboxes = reader.data[frame_number]
         if len(bboxes) == 1 and bboxes[0] == '': 
@@ -217,7 +273,28 @@ def draw_bbox_from_file(file_path, input_video_path, output_video_path):
                 colors_used[name] = colors[color_index]
                 color_index = (color_index + 1)%len(colors)
 
-            draw_bbox(frame, colors_used[name], bbox, name)
+            if annotation_type == "bbox":
+                draw_bbox(frame, colors_used[name], bbox, name)
+            if annotation_type == "triangle":
+                draw_triangle(frame, colors_used[name], bbox, name)
+
+        if (draw_frame_count):
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            label_text = f"{frame_number}"
+            (w, h), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_COMPLEX, 0.9, 1)
+
+            # Coordinates for top-right corner
+            x = frame_width - w - 10  # 10 px padding from right
+            y = h + 10                # 10 px padding from top
+
+            # Draw semi-transparent rectangle
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (x - 5, y - h - 5), (x + w + 5, y + 5), (57, 46, 135), -1)
+            cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+
+            # Draw text
+            cv2.putText(frame, label_text, (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.9, (255, 255, 255), 1)
 
         out.write(frame)
 
@@ -251,54 +328,56 @@ def perform_tracking(input_video_path, output_text_file_path, detection_model, t
     """
     cap = cv2.VideoCapture(input_video_path)
     ret, frame = cap.read()
-    file_improve_tracking = open(output_text_file_path, "w")
+    with open(output_text_file_path, "w") as file_improve_tracking:
+        frame_number = 0
+        while ret:
+            if frame_number >= 100: break
+            file_improve_tracking.write("#\n")
+            predictions = detection_model.predict(frame, verbose=False)[0]
+            modified = False
+            
+            #On ne garde que les détections de bboxes qui ont une confiance suppérieur à 0.2
+            detections = []
+            for x1, y1, x2, y2, score, _ in predictions.boxes.data.tolist():
+                if score >= confidence_threshold:
+                    bbox = np.array([x1, y1, x2 - x1, y2 - y1]) #Coin supérieur gauche + width et height 
+                    confidence = float(score)
+                    #feature permet à DeepSORT de prendre en compte l'apparence en plus dans le tracking donc il faudrait extraire l'apparence grâce à un model 
+                    #Fonctionne un peu comme SORT pour l'instant ducoup car l'apparence est pas prise en compte 
+                    feature = extract_features_osnet(frame, [x1, y1, x2, y2], model_feature_extraction) 
+                    detections.append(Detection(bbox, confidence, feature))
 
-    frame_number = 0
-    while ret: 
-        print(frame_number)
-        file_improve_tracking.write("#\n")
-        predictions = detection_model.predict(frame, verbose=False)[0]
-        modified = False
-        
-        #On ne garde que les détections de bboxes qui ont une confiance suppérieur à 0.2
-        detections = []
-        for x1, y1, x2, y2, score, _ in predictions.boxes.data.tolist():
-            if score >= confidence_threshold:
-                bbox = np.array([x1, y1, x2 - x1, y2 - y1]) #Coin supérieur gauche + width et height 
-                confidence = float(score)
-                #feature permet à DeepSORT de prendre en compte l'apparence en plus dans le tracking donc il faudrait extraire l'apparence grâce à un model 
-                #Fonctionne un peu comme SORT pour l'instant ducoup car l'apparence est pas prise en compte 
-                feature = extract_features_osnet(frame, [x1, y1, x2, y2], model_feature_extraction) 
-                detections.append(Detection(bbox, confidence, feature))
-
-        # Mettre à jour avec les détections et forcer l'association des features
-        if len(detections) > 0:
-            tracker.predict()  # Prédit la position des objets dans la frame suivante
-            tracker.update(detections)  # Maj avec les détections
+            # Mettre à jour avec les détections et forcer l'association des features
+            if len(detections) > 0:
+                tracker.predict()  # Prédit la position des objets dans la frame suivante
+                tracker.update(detections)  # Maj avec les détections
 
 
-        #Noter dans le fichier txt les bboxes et les ids correspondants
-        for track in tracker.tracks: #Parcourt les objets suivis
-            # Check que l'objet est fiable (pas un objet incertain ou qui vient d'apparaître) + check si l'objet a déjà des features d'apparence enregistrées
-            if track.is_confirmed() and track.track_id not in tracker.metric.samples:
-                tracker.metric.samples[track.track_id] = [] #pour stocker les caractéristiques d'apparence calculées grâce à OSNet
+            #Noter dans le fichier txt les bboxes et les ids correspondants
+            for track in tracker.tracks: #Parcourt les objets suivis
+                # Check que l'objet est fiable (pas un objet incertain ou qui vient d'apparaître) + check si l'objet a déjà des features d'apparence enregistrées
+                if track.is_confirmed() and track.track_id not in tracker.metric.samples:
+                    tracker.metric.samples[track.track_id] = [] #pour stocker les caractéristiques d'apparence calculées grâce à OSNet
 
-            #Si pour un objet suivi il y a des doutes sur son identité ou si pas été mis à jour depuis trop de temps, on l'ignore.
-            if not track.is_confirmed() or track.time_since_update > 1: 
-                continue
+                #Si pour un objet suivi il y a des doutes sur son identité ou si pas été mis à jour depuis trop de temps, on l'ignore.
+                if not track.is_confirmed() or track.time_since_update > 1: 
+                    continue
 
-            bbox = track.to_tlbr()  # Format [x1, y1, x2, y2]
-            track_id = track.track_id
+                bbox = track.to_tlbr()  # Format [x1, y1, x2, y2]
+                track_id = track.track_id
 
-            # Ecrire la bounding box avec l'ID du chimpanzé
-            str_bbox = ' '.join(map(str, bbox))
-            file_improve_tracking.write(f"{track_id} {str_bbox}\n")
-            modified = True
+                # Ecrire la bounding box avec l'ID du chimpanzé
+                str_bbox = ' '.join(map(str, bbox))
+                file_improve_tracking.write(f"{track_id} {str_bbox}\n")
+                modified = True
 
-        if not modified: file_improve_tracking.write("\n")
-        ret, frame = cap.read()
-        frame_number += 1
+            if not modified: file_improve_tracking.write("\n")
+            ret, frame = cap.read()
+            frame_number += 1
+            if (frame_number%10==0):
+                print(frame_number)
 
+        file_improve_tracking.close()
+        cap.release()
+        cv2.destroyAllWindows()   
     file_improve_tracking.close()
-    cap.release()
-    cv2.destroyAllWindows()   
