@@ -1,18 +1,8 @@
 import sys
 sys.path.append("C:/Users/Theo/Documents/Unif/ChimpRec/Code")
+from chimplib.imports import sys, os, cv2, np, transforms, Image, torch, torchreid, YOLO
 
-import sys
-import os
-import cv2
-import numpy as np
-from torchvision import transforms
-from PIL import Image
-import torch
-import torchreid
-from ultralytics import YOLO
-
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
+sys.path.append(os.path.dirname(__file__))
 from deep_sort.deep_sort.detection import Detection
 from deep_sort.deep_sort.tracker import Tracker as DeepSortTracker
 from deep_sort.deep_sort import nn_matching

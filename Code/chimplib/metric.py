@@ -1,7 +1,8 @@
 import sys
-sys.path.append("C:\\Users\\Theo\\Documents\\Unif\\ChimpRec\\Code")
+sys.path.append("C:/Users/Theo/Documents/Unif/ChimpRec/Code")
 
 from chimplib.imports import *
+from chimplib.utils import *
 
 model_path = "C:/Users/Theo/Documents/Unif/Models/body/"
 test_set = "C:/Users/Theo/Documents/Unif/detection_test_set"
@@ -89,19 +90,61 @@ bbox2 is expected to be the prediction
 output:
 The intersection over union metric between bbox1 and bbox2
 """
-def iou(bbox1, bbox2, img_dim=(1080, 1920)):
+def get_intersection(bbox1, bbox2, img_dim):
+    """
+    Compute the intersection of two bboxes.
 
+    Args:
+        bbox1, bbox2 (tuple): Two bboxes in YOLO format.
+        img_dim (tuple): Dimension of the image.
+
+    Returns:
+        int: Value of the intersection of the two bboxes.
+    """ 
     # conversion into relative coordinates
     Ax, Ay, Bx, By = yolo_to_relative_coord(bbox1, img_dim)
     Cx, Cy, Dx, Dy = yolo_to_relative_coord(bbox2, img_dim)
 
-    intersection = get_intersection(bbox1, bbox2, img_dim)
+    # computation of the intersection
+    x_overlap = min(Dx, Bx) - max(Ax, Cx)
+    y_overlap = min(Dy, By) - max(Ay, Cy)
+    if (x_overlap < 0 or y_overlap < 0): return 0 # no overlap case
+    return x_overlap*y_overlap
+
+def get_union(bbox1, bbox2, img_dim, intersection): 
+    """
+    Compute the union of two bboxes.
+
+    Args:
+        bbox1, bbox2 (tuple): Two bboxes in YOLO format.
+        img_dim (tuple): Dimension of the image.
+        intersection (int): Value of the intesection of the two bboxes.
+
+    Returns:
+        int: Value of the union of the two bboxes.
+    """
+    # conversion into relative coordinates
+    Ax, Ay, Bx, By = yolo_to_relative_coord(bbox1, img_dim)
+    Cx, Cy, Dx, Dy = yolo_to_relative_coord(bbox2, img_dim)
 
     # computation of the union
     area_1 = abs((Bx-Ax)*(By-Ay))
     area_2 = abs((Dx-Cx)*(Dy-Cy))
-    union = area_1 + area_2 - intersection
+    return area_1 + area_2 - intersection
 
+def iou(bbox1, bbox2, img_dim=(1080, 1920)):
+    """
+    Compute the iou of two bboxes.
+
+    Args:
+        bbox1, bbox2 (tuple): Two bboxes in YOLO format.
+        img_dim (tuple): Dimension of the image.
+
+    Returns:
+        int: The intersection over union metric between bbox1 and bbox2.
+    """
+    intersection = get_intersection(bbox1, bbox2, img_dim)
+    union = get_union(bbox1, bbox2, img_dim, intersection)
     # IoU
     return intersection/union
 
@@ -364,26 +407,6 @@ def draw_predictions(predictions, ground_truth, test_set_path_images, output_fol
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img_height, img_width, _ = image.shape
 
-        def draw_bbox(image, bbox, color, label=None):
-            """ Draws a single bounding box on the image. """
-            x_center, y_center, width, height = bbox
-
-            # Convert YOLO format to absolute pixel coordinates
-            x1 = int((x_center - width / 2) * img_width)
-            y1 = int((y_center - height / 2) * img_height)
-            x2 = int((x_center + width / 2) * img_width)
-            y2 = int((y_center + height / 2) * img_height)
-
-            # Draw rectangle
-            cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
-
-            # Put label
-            if label:
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                font_scale = 0.5
-                thickness = 1
-                cv2.putText(image, label, (x1, max(y1 - 5, 10)), font, font_scale, color, thickness, cv2.LINE_AA)
-
         # Draw ground truth boxes (green)
         if img_prefix in ground_truth:
             for bbox in ground_truth[img_prefix]:
@@ -395,196 +418,3 @@ def draw_predictions(predictions, ground_truth, test_set_path_images, output_fol
 
         image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         cv2.imwrite(output_path, image_bgr)
-
-def draw_categorised_predictions(predictions, ground_truth, test_set_path, iou_threshold=0.75, output_folder=""):
-    """
-    Draws ground truth and predicted bounding boxes on images, annotating predictions as TP, FP, or FN.
-
-    Args:
-        predictions (dict): Dictionary of predicted bounding boxes in YOLO format.
-        ground_truth (dict): Dictionary of ground truth bounding boxes in YOLO format.
-        test_set_path (str): Path to the test set directory.
-        iou_threshold (float): Threshold for classifying TP, FP, FN.
-        output_folder (str): Path to save output images (optional).
-        max_images (int): Maximum number of images to display.
-
-    Returns:
-        None
-    """
-
-    color_GT = (34, 87, 236)
-    color_TP = (115, 82, 238)
-    color_FP = (129, 82, 238)
-
-    test_set_path = f"{test_set_path}/images"
-
-    for img_prefix, pred_bboxes in predictions.items():
-        img_name = f"{img_prefix}.png"
-        img_path = os.path.join(test_set_path, img_name)
-        output_path = os.path.join(output_folder, img_name)
-
-        # Load image
-        image = cv2.imread(img_path)
-        if image is None:
-            print(f"Error: Unable to load image {img_name}")
-            continue
-
-        # Convert from BGR to RGB for correct color display
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        img_height, img_width, _ = image.shape
-
-        def draw_bbox(image, bbox, color, label):
-            
-            x_center, y_center, width, height = bbox
-
-            x1 = int((x_center - width / 2) * img_width)
-            y1 = int((y_center - height / 2) * img_height)
-            x2 = int((x_center + width / 2) * img_width)
-            y2 = int((y_center + height / 2) * img_height)
-            
-            font_scale = 1
-
-            cv2.rectangle(image, (x1, y1), (x2, y2), color, 4)
-            (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_COMPLEX, font_scale, 1)
-
-            overlay = image.copy()
-            cv2.rectangle(overlay, (x2 - w - 10, y2 - h - 10), (x2, y2), color, -1)
-            cv2.addWeighted(overlay, 0.5, image, 0.5, 0, image)
-
-            cv2.putText(image, label, (x2 - w - 5, y2 - 5), cv2.FONT_HERSHEY_COMPLEX, font_scale, (255,255,255), 1)
-
-        # Get GT and predictions for this image
-        gt_bboxes = ground_truth.get(img_prefix, [])  # Ground truth boxes
-        pred_bboxes = pred_bboxes  # Predicted boxes
-
-        matched_gt = set()  # To track matched ground truth boxes
-        bbox_categories = []  # List to store categorization of predictions
-
-        # Categorize each predicted bounding box
-        for pred in pred_bboxes:
-            best_iou = 0
-            best_gt_idx = -1
-            
-            for i, gt in enumerate(gt_bboxes):
-                score = weighted_iou(pred, gt)  # Compute IoU
-                if score > best_iou:
-                    best_iou = score
-                    best_gt_idx = i
-            
-            if best_iou >= iou_threshold and best_gt_idx not in matched_gt:
-                matched_gt.add(best_gt_idx)
-                bbox_categories.append((pred, "TP"))  # True Positive
-            else:
-                bbox_categories.append((pred, "FP"))  # False Positive
-
-        # Identify False Negatives (unmatched ground truth boxes)
-        unmatched_gt = [gt for i, gt in enumerate(gt_bboxes) if i not in matched_gt]
-
-        # Draw ground truth boxes (green)
-        for bbox in gt_bboxes:
-            if bbox in unmatched_gt: continue
-            draw_bbox(image, bbox, color_GT, "GT")  # Green for GT
-
-        # Draw predicted boxes with their category
-        for bbox, category in bbox_categories:
-            if category == "TP":
-                draw_bbox(image, bbox, color_TP, category)
-            else:
-                draw_bbox(image, bbox, color_FP, category)
-
-        # Draw False Negative boxes (Red)
-        for bbox in unmatched_gt:
-            draw_bbox(image, bbox, color_GT, "FN(GT)")  # FN in Red
-
-        # Convert image back to BGR for OpenCV
-        image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-        cv2.imwrite(output_path, image_bgr)
-
-def draw_uncategorised_predictions(predictions, ground_truth, test_set_path, iou_threshold=0.75, output_folder=""):
-    """
-    Draws ground truth and predicted bounding boxes on images, annotating predictions as TP, FP, or FN.
-
-    Args:
-        predictions (dict): Dictionary of predicted bounding boxes in YOLO format.
-        ground_truth (dict): Dictionary of ground truth bounding boxes in YOLO format.
-        test_set_path (str): Path to the test set directory.
-        iou_threshold (float): Threshold for classifying TP, FP, FN.
-        output_folder (str): Path to save output images (optional).
-        max_images (int): Maximum number of images to display.
-
-    Returns:
-        None
-    """
-
-    color_GT = (34, 87, 236)
-    color_TP = (115, 82, 238)
-    color_FP = (129, 82, 238)
-
-    test_set_path = f"{test_set_path}/images"
-    index = 0
-
-    for img_prefix, pred_bboxes in predictions.items():
-        img_name = f"{img_prefix}.png"
-        img_path = os.path.join(test_set_path, img_name)
-        output_path = os.path.join(output_folder, img_name)
-
-        # Load image
-        image = cv2.imread(img_path)
-        if image is None:
-            print(f"Error: Unable to load image {img_name}")
-            continue
-
-        # Convert from BGR to RGB for correct color display
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        img_height, img_width, _ = image.shape
-
-        def draw_bbox(image, bbox, color, label):
-            
-            x_center, y_center, width, height = bbox
-
-            x1 = int((x_center - width / 2) * img_width)
-            y1 = int((y_center - height / 2) * img_height)
-            x2 = int((x_center + width / 2) * img_width)
-            y2 = int((y_center + height / 2) * img_height)
-            
-            font_scale = 1
-
-            cv2.rectangle(image, (x1, y1), (x2, y2), color, 4)
-            (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_COMPLEX, font_scale, 1)
-
-            overlay = image.copy()
-            cv2.rectangle(overlay, (x2 - w - 10, y2 - h - 10), (x2, y2), color, -1)
-            cv2.addWeighted(overlay, 0.5, image, 0.5, 0, image)
-
-            cv2.putText(image, label, (x2 - w - 5, y2 - 5), cv2.FONT_HERSHEY_COMPLEX, font_scale, (255,255,255), 1)
-
-        # Get GT and predictions for this image
-        gt_bboxes = ground_truth.get(img_prefix, [])  # Ground truth boxes
-        pred_bboxes = pred_bboxes  # Predicted boxes
-
-        # Draw ground truth boxes (green)
-        for bbox in gt_bboxes:
-            draw_bbox(image, bbox, color_GT, "GT")  # Green for GT
-
-        # Draw predicted boxes with their category
-        for bbox in pred_bboxes:
-            draw_bbox(image, bbox, color_TP, "PRED")
-
-        # Convert image back to BGR for OpenCV
-        image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-        cv2.imwrite(output_path, image_bgr)
-
-def test(): print("hello world!")
-
-# # code to launch draw bboxes: 
-# if __name__ == "__main__":
-#     t = 0.6
-#     t_confidence = 0.35
-#     merging_threshold = 0.8
-
-#     GT = extract_ground_truth()
-#     predictions = predict(model_path, test_set, t_confidence=t_confidence)
-#     draw_categorised_predictions(predictions, GT, test_set, output_folder="annotated_visualisation")
-#     draw_uncategorised_predictions(predictions, GT, test_set, output_folder="visualisation")

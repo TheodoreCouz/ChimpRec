@@ -1,6 +1,0 @@
-path: C:/Users/julie/Documents/Unif/Mémoire/YOLO_detection
-train: images/train
-val: images/val
-
-names:
-  0: Body
