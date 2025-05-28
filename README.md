@@ -1,5 +1,4 @@
 # ChimpRec
-Master thesis project
 
 This repository is the source code related to the Master thesis project realised by Théodore Cousin and Julien Demeure studying at UCLouvain (Belgium).
 
@@ -26,5 +25,13 @@ Models/
 `Code/Tracking/Manual Correction/` contains a framework directly usable to correct the output of the body detection and tracking stages in the architectures. It allows users to take profit from the work already performed eventhough the whole architecture isn't functional yet.
 
 `Models` contains all the trained models that we came up with. For the body and face detection tasks, `YOLOv8s` is the model offering the best performance. In the case of facial recognition, the fully connected approach demonstrated better results.
+
+All the dependencies necessary are listed in the file `./requirements.txt`. To execute the code. Create a python virtual environment, activate it, and install all the dependencies:
+
+```bash
+$python -m venv <venv name>
+$./<venv name>/Scripts/activate 
+$pip install -r requirements.txt
+ ```
 
 ![Alt text](./ChimpRec.webp)
