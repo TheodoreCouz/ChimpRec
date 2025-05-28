@@ -1,5 +1,11 @@
-import cv2
-import pandas as pd
+import sys
+sys.path.append('C:/Users/Theo/Documents/Unif/ChimpRec/Code')
+
+from chimplib.utils import draw_bbox
+from chimplib.imports import cv2, pd
+
+# This file helps understaning whether a dataset has correctly been built.
+# It helps visualise if the bounding boxes are correctly aligned with the individuals.
 
 def preprocess_coordinates(coord, img_W, img_H):
     x, y, w, h = coord
@@ -11,51 +17,8 @@ def preprocess_coordinates(coord, img_W, img_H):
         )
     return res
 
-def to_yolo_format(coord, img_width, img_height):
-
-    x, y, w, h = coord
-    
-    x1 = int(x*img_width)
-    y1 = int(y*img_width)
-    x2 = int(x*img_width+w*img_width)
-    y2 = int((y*img_width)+h*img_height)
-
-    cx = (x1 + x2) / 2
-    cy = (y1 + y2) / 2
-
-    width = x2 - x1
-    height = y2 - y1
-
-    cx_norm = cx / img_width
-    cy_norm = cy / img_height
-
-    width_norm = width / img_width
-    height_norm = height / img_height
-
-    return [cx_norm, cy_norm, width_norm, height_norm]
-
-
-def draw_boxes(image, boxes):
-    """
-    Draw the bounding boxes on the frame.
-    :param frame: The image frame.
-    :param boxes: A list of bounding boxes. Each bounding box can be either (x, y, w, h) or (x, y, size).
-    :return: The frame with the boxes drawn on it.
-    """
-    boxed_image = image
-    for box in boxes:
-
-
-        # Ensure coordinates are integers
-        x1, y1, x2, y2 = box
-
-        # Draw the rectangle on the frame
-        cv2.rectangle(boxed_image, (x1, y1), (x2, y2), (255, 0, 0), 3)
-
-    return boxed_image
-
 def array_to_video(images, output_path, fps, frame_size):
-    # Initialize the video writer object
+    # Initialise the video writer object
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
     out = cv2.VideoWriter(output_path, fourcc, fps, frame_size)
 
@@ -64,8 +27,8 @@ def array_to_video(images, output_path, fps, frame_size):
 
     out.release()  # Release the video writer
 
-def process_image(frame_count, img_W, img_H, video_name="15.mp4"):
-    df = pd.read_csv("/home/theo/Documents/Unif/Master/ChimpRec/ChimpRec-Dataset/CCR/metadata/annotations/body_data.csv")
+def process_image(frame_count, img_W, img_H, video_name=""):
+    df = pd.read_csv(".../CCR/metadata/annotations/body_data.csv")
     df = df.loc[df["video"] == video_name].loc[df["frame"] == frame_count].loc[df["label"] != "NOTCHIMP"]
     boxes = []
 
@@ -104,8 +67,10 @@ def process_video(video_path, frame_limit=10000):
 
         print(frame.shape)
 
-        boxes = process_image(nframes+1, frame.shape[1], frame.shape[0], "15.mp4")
-        new_image = draw_boxes(frame, boxes)
+        boxes = process_image(nframes+1, frame.shape[1], frame.shape[0], "example video name")
+        new_image = frame
+        for bbox in boxes:
+            new_image = draw_bbox(new_image, (0, 204, 102), boxes, "Body")
         new_images.append(new_image)
 
         nframes+=1
@@ -120,8 +85,6 @@ def process_video(video_path, frame_limit=10000):
     print(f"Video saved as {output_path}")
 
 if (__name__ == "__main__"):
-    vid_path = "/home/theo/Documents/Unif/Master/ChimpRec/ChimpRec-Dataset/CCR/videos/15.mp4"
+    
+    vid_path = "..." # video to be annotated path
     process_video(vid_path, 150)
-    # df = pd.read_csv("/home/theo/Documents/Unif/Master/ChimpRec/ChimpRec-Dataset/CCR/metadata/annotations/body_data.csv")
-    # df = df.loc[df["video"] == "15.mp4"].loc[df["frame"] == 2]
-    # print(df)

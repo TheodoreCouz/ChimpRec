@@ -1,7 +1,10 @@
 import os
 import glob
 
-path = "/home/theo/Documents/Unif/Master/ChimpRec/ChimpRec-Dataset/Chimpanzee_detection_dataset"
+# when executed, this code removes all the labels and images within a dataset. 
+# It is useful when you need to rebuild a dataset but you do not want to recreate the structure manually.
+
+path = "..." # source path to the dataset you want to clean
 
 # List of folders to clear
 folders = [
