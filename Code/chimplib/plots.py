@@ -38,11 +38,11 @@ def plot_weight(f):
     plt.savefig("plots/iou_weight.svg", format="svg")
     plt.show()
 
-df_builtin = pd.read_csv("./PR_v8s_built_in.csv")
-df_custom = pd.read_csv("./PR_v8s_custom.csv")
+# df_builtin = pd.read_csv("./PR_v8s_built_in.csv")
+# df_custom = pd.read_csv("./PR_v8s_custom.csv")
 
-P_builtin, R_builtin = df_builtin["Precision"].tolist(), df_builtin["Recall"].tolist()
-P_custom, R_custom = df_custom["Precision"].tolist(), df_custom["Recall"].tolist()
+# P_builtin, R_builtin = df_builtin["Precision"].tolist(), df_builtin["Recall"].tolist()
+# P_custom, R_custom = df_custom["Precision"].tolist(), df_custom["Recall"].tolist()
 
 def plot(builtin, custom, colors, metric):
 
@@ -71,18 +71,46 @@ def plot(builtin, custom, colors, metric):
 # plot(P_builtin, P_custom, ("mediumvioletred", "rebeccapurple"), "Precision")
 # plot(R_builtin, R_custom, ("steelblue", "navy"), "Recall")
 
+def plot_data(data):
+    # Sort data by t values
+    sorted_data = sorted(data.items())  
+    t_values, pr_recall = zip(*sorted_data)
+
+    # Extract precision and recall
+    precision_values, recall_values = zip(*pr_recall)
+
+    # Create the plot
+    plt.figure(figsize=(10, 5))
+    plt.plot(t_values, precision_values, label="Precision", color="mediumvioletred", marker='o', linestyle='-')
+    plt.plot(t_values, recall_values, label="Recall", color="rebeccapurple", marker='s', linestyle='-')
+
+    # Labels and title
+    plt.xlabel("Confidence threshold")
+    plt.ylabel("Value")
+    plt.title(f"Precision and Recall as a function of the confidence threshold (iou_t = {0.6}) (body detection)")
+    plt.legend()
+    plt.grid(True)
+
+    # Set x-axis ticks to show all t values
+    plt.xticks(t_values, labels=[str(t) for t in t_values])  # Ensuring each t is explicitly labeled
+
+    # Display the plot
+    plt.show()
+
 """
 Precision and recall as a function of the confidence threshold
 """
-def PR_conft_plot():
+def PR_conft_plot(model_path, images, labels, t_iou, csv_path_out = "NONE"):
     iterators = [i/20 for i in range(1, 20, 1)]
 
     data = dict()
     n_pred_list = []
 
+    GT = extract_ground_truth(labels, images)
+
     for i in iterators:
-        pred = predict(model_path, test_set, i)
-        results = extract_metrics(GT, pred, t=t)
+        pred = predict(model_path, images, i)
+        results = extract_metrics(GT, pred, t=t_iou)
         tp, fp, fn = results.values()
         if (tp+fp) == 0: precision = 0
         else: precision=tp/(tp+fp)
@@ -94,3 +122,10 @@ def PR_conft_plot():
         for values in pred.values():
             n_pred += len(values)
         n_pred_list.append(n_pred)
+    
+    plot_data(data)
+
+    if csv_path_out != "NONE":
+        df = pd.DataFrame.from_dict(data, orient="index", columns=["Precision", "Recall"])
+        df.index.name = "Threshold"
+        df.to_csv(csv_path_out)
