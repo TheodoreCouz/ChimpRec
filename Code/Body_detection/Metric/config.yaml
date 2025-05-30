@@ -1,4 +1,4 @@
-path: C:/Users/Theo/Documents/Unif/detection_test_set
+path: ... # path to the root folder of the test set
 train: images  # Dummy path (not used)
 val: images    # Dummy path (not used)
 test: images

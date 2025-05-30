@@ -1,5 +1,5 @@
 import sys
-sys.path.append("C:/Users/Theo/Documents/Unif/ChimpRec/Code")
+sys.path.append("PATH TO /Code")
 
 from chimplib.metric import *
 
@@ -195,31 +195,89 @@ def plot_merging_threshold(model_path, images, labels, t_iou,  out_path = "NONE"
             df.index.name = "MERGING_R"
             df.to_csv(f"{out_path}/results_merging_bboxes.csv")
 
-def plot_custom_vs_built_in(model_path, images, labels, t_iou, out_path = "NONE"):
+def plot_iou_comparison(model_path, yaml_file, images, labels, t_iou,  out_path = "NONE"):
     iterators = [i/20 for i in range(1, 20, 1)]
+    builtin_recall = []
+    builtin_precision = []
 
-    data = dict()
-
-    GT = extract_ground_truth(labels, images)
+    model = YOLO(model_path)
 
     for i in iterators:
-        pred = predict(model_path, images, i, iou)
-        results = extract_metrics(GT, pred, t=t_iou)
-        tp, fp, fn = results.values()
-        if (tp+fp) == 0: precision = 0
-        else: precision=tp/(tp+fp)
+        # Evaluate the model
+        results = model.val(data=yaml_file, conf=i)
+        precision, recall = results.box.mp, results.box.mr
+        builtin_precision.append(float(precision))
+        builtin_recall.append(float(recall))
 
-        if (tp+fn) == 0: recall = 0
-        else: recall=tp/(tp+fn)
+    #-----------------------------------------
+    GT = extract_ground_truth(labels, images)
 
-        n_pred = 0
-        for values in pred.values(): n_pred += len(values)
-        data[i] = (precision, recall, n_pred)
-    
-    plot_PR(data, out_path)
-    plot_proportion(GT, data, out_path)
+    iou_recall = []
+    iou_precision = []
 
-    if out_path != "NONE":
-        df = pd.DataFrame.from_dict(data, orient="index", columns=["Precision", "Recall", "N_PRED"])
-        df.index.name = "Threshold"
-        df.to_csv(f"{out_path}/results_PR.csv")
+    w_iou_recall = []
+    w_iou_precision = []
+    for i in iterators:
+        pred = predict(model_path, images, i)
+        results_iou = extract_metrics(GT, pred, t=t_iou, score_fct=iou)
+        results_w_iou = extract_metrics(GT, pred, t=t_iou, score_fct=weighted_iou)
+
+        tp_iou, fp_iou, fn_iou = results_iou.values()
+        tp_w_iou, fp_w_iou, fn_w_iou = results_w_iou.values()
+
+        if (tp_iou+fp_iou) == 0: precision_iou = 0
+        else: precision_iou=tp_iou/(tp_iou+fp_iou)
+
+        if (tp_iou+fn_iou) == 0: recall_iou = 0
+        else: recall_iou=tp_iou/(tp_iou+fn_iou)
+
+        iou_recall.append(recall_iou)
+        iou_precision.append(precision_iou)
+
+        if (tp_w_iou+fp_w_iou) == 0: precision_w_iou = 0
+        else: precision_w_iou=tp_w_iou/(tp_w_iou+fp_w_iou)
+
+        if (tp_w_iou+fn_w_iou) == 0: recall_w_iou = 0
+        else: recall_w_iou=tp_w_iou/(tp_w_iou+fn_w_iou)
+
+        w_iou_recall.append(recall_w_iou)
+        w_iou_precision.append(precision_w_iou)
+
+    df = pd.DataFrame({
+        'CONF_T': iterators,
+        'RECALL_BI': builtin_recall,
+        'PRECISION_BI': builtin_precision,
+        'RECALL_IOU': iou_recall,
+        'PRECISION_IOU': iou_precision,
+        'RECALL_W_IOU': w_iou_recall,
+        'PRECISION_W_IOU': w_iou_precision
+    })
+
+    df.to_csv(f"{out_path}/data.csv")
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(iterators, iou_precision, marker='x', label='Precision (IOU)', color="steelblue", linestyle='-')
+    plt.plot(iterators, w_iou_precision, marker='s', label='Precision (weighted IOU)', color="navy", linestyle='-')
+    plt.plot(iterators, builtin_precision, marker='o', label='Precision (built in - ultralytics)', color="mediumvioletred", linestyle='-')
+
+    plt.xlabel('Confidence threshold')
+    plt.ylabel('Precision')
+    plt.title('Precision vs confidence threshold - three ways to compute the iou score (iou_t = 0.6) (body detection)')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f"{out_path}/precision.svg", format = "svg")
+    plt.show()
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(iterators, iou_recall, marker='x', label='Recall (IOU)', color="steelblue", linestyle='-')
+    plt.plot(iterators, w_iou_recall, marker='s', label='Recall (weighted IOU)', color="navy", linestyle='-')
+    plt.plot(iterators, builtin_recall, marker='o', label='Recall (built in - ultralytics)', color="mediumvioletred", linestyle='-')
+
+    plt.xlabel('Confidence threshold')
+    plt.ylabel('Recall')
+    plt.title('Recall vs confidence threshold - three ways to compute the iou score (iou_t = 0.6) (body detection)')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f"{out_path}/recall.svg", format = "svg")
+    plt.show()

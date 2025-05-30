@@ -12,6 +12,7 @@ from torchvision import transforms
 from PIL import Image
 import torch
 import torchreid
+import shutil
 
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     'transforms',
     'Image',
     'torch',
-    'torchreid'
+    'torchreid', 
+    'shutil'
 ]
