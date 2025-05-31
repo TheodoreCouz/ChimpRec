@@ -1,4 +1,4 @@
-Code/global_venv
+Code/new_venv
 
 # Ignorer les fichiers compilés Python
 __pycache__/

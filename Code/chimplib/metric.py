@@ -1,18 +1,8 @@
 import sys
-sys.path.append("C:/Users/Theo/Documents/Unif/ChimpRec/Code")
+sys.path.append("PATH TO /Code")
 
 from chimplib.imports import *
 from chimplib.utils import *
-
-model_path = "C:/Users/Theo/Documents/Unif/Models/body/"
-test_set = "C:/Users/Theo/Documents/Unif/detection_test_set"
-models = [
-    "v8n",
-    "v8s",
-    "v10n",
-    "v10s",
-    "v10m"
-]
 
 def weight(bbox_size, a=1.6, b=18):
     return -(a-1)*math.tanh(b*bbox_size)+a
@@ -251,7 +241,7 @@ def extract_metrics(ground_truths:dict, predictions:dict, t=0.75, score_fct=weig
     
     return {"true_positives": tp, "false_positives": fp, "false_negatives": fn}
 
-def extract_ground_truth(test_set_path_labels = f"{test_set}/labels", test_set_path_images = f"{test_set}/images", class_filtered=[]):
+def extract_ground_truth(test_set_path_labels, test_set_path_images, class_filtered=[]):
     data = dict()
 
     # check whether the specified path is valid directory

@@ -259,7 +259,6 @@ def draw_bbox_from_file(file_path, input_video_path, output_video_path, annotati
     seen_names = set()
 
     while ret:
-        if frame_number >= 100: break
         if len(reader.data) <= frame_number: break
         bboxes = reader.data[frame_number]
         if len(bboxes) == 1 and bboxes[0] == '': 
@@ -333,7 +332,6 @@ def perform_tracking(input_video_path, output_text_file_path, detection_model, t
     with open(output_text_file_path, "w") as file_improve_tracking:
         frame_number = 0
         while ret:
-            if frame_number >= 100: break
             file_improve_tracking.write("#\n")
             predictions = detection_model.predict(frame, verbose=False)[0]
             modified = False

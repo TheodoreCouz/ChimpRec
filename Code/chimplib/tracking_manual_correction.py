@@ -1,5 +1,5 @@
 import sys
-sys.path.append("C:/Users/Theo/Documents/Unif/ChimpRec/Code")
+sys.path.append("PATH TO /Code")
 from chimplib.imports import sys, os, cv2, np, transforms, Image, torch, torchreid, YOLO
 
 sys.path.append(os.path.dirname(__file__))

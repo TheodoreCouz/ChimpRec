@@ -1,7 +1,7 @@
 import sys
-sys.path.append("C:/Users/Theo/Documents/Unif/ChimpRec/Code")
+sys.path.append("PATH TO /Code")
 
-from imports import *
+from chimplib.imports import *
 
 # @inputs:
 # image: image to be drawn on
