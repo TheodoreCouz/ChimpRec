@@ -1,1 +1,7 @@
 Code/global_venv
+
+# Ignorer les fichiers compilés Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
