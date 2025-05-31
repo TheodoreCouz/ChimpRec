@@ -91,16 +91,7 @@ def draw_triangle(image, color, bbox, label):
 # @output:
 # image: bounding box coordinates (in YOLO format (cx, cy, w, h))
 def yolo_to_relative_coord(bbox, img_dim):
-    """
-    Compute the coordinates of the bbox in pixels term.
 
-    Args:
-        bbox(tuple): Bbox in YOLO format.
-        img_dim (tuple): Dimension of the image.
-
-    Returns:
-        tuple: The coordinate of the top left an the bottom right corner of the bbox in pixel term.
-    """ 
     x_center, y_center, width, height = bbox
     img_w, img_h = img_dim
     
@@ -111,17 +102,13 @@ def yolo_to_relative_coord(bbox, img_dim):
     
     return [x_min, y_min, x_max, y_max]
 
+
+# @input:
+# bbox: bounding box in pixel format (x1, y1, x2, y2)
+# img_dim: tuple (img_height, img_width) representing image size in pixels
+# @output:
+# bounding box in YOLO format [x_center, y_center, width, height], normalized between 0 and 1
 def convert_to_yolo(bbox, img_dim=(1080, 1920)):
-    """
-    Compute the coordinates of the bbox in pixels term.
-
-    Args:
-        bbox(tuple): Cordinate of the top left an the bottom right corner of the bbox in pixel term..
-        img_dim (tuple): Dimension of the image.
-
-    Returns:
-        tuple: The coordinate of the bbox in YOLO format ([x_center, y_center, width, height]).
-    """
     x1, y1, x2, y2 = bbox
     img_width, img_height = img_dim
 
@@ -140,3 +127,72 @@ def convert_to_yolo(bbox, img_dim=(1080, 1920)):
     height /= img_height
 
     return [x_center, y_center, width, height]
+
+
+# @input:
+# coord: bounding box in YOLO format (x_center, y_center, width, height)
+# img_width: image width in pixels
+# img_height: image height in pixels
+# box_type: type of bbox to adapt coordinate conversion ("face", "body", "default")
+# @output:
+# bounding box pixel coordinates (x1, y1, x2, y2)        
+def yolo_to_pixel_coord(coord, img_width, img_height, box_type="default"):
+    x, y, w, h = coord
+
+    if box_type == "face":
+        x1 = int(x * img_width)
+        y1 = int(y * img_height)
+        x2 = int((x + w) * img_width)
+        y2 = int((y + h) * img_height)
+
+    elif box_type == "body":
+        x1 = int(x * img_width)
+        #logically we should use img_height but it doesn't work and with width it does
+        y1 = int(y * img_width) 
+        x2 = int(x * img_width + w * img_width)
+        y2 = int(y * img_width + h * img_height)
+
+    else:
+        x1 = max(0, int((x - w / 2) * img_width)) 
+        y1 = max(0, int((y - h / 2) * img_height))
+        x2 = min(img_width, int((x + w / 2) * img_width))
+        y2 = min(img_height, int((y + h / 2) * img_height))
+
+    return x1, y1, x2, y2
+
+
+# @input:
+# body_bbox: bounding box pixel coordinates of the body (x1, y1, x2, y2)
+# face_bbox: bounding box pixel coordinates of the face (x1, y1, x2, y2)
+# @output:
+# bounding box of the face relative to the body in YOLO format (x_center, y_center, width, height)
+def face_to_yolo_relative_to_body(body_bbox, face_bbox):
+    bx1, by1, bx2, by2 = body_bbox 
+    fx1, fy1, fx2, fy2 = face_bbox  
+    
+    #change the face bboxes if they excced from the body bbox
+    if fx1 < bx1: 
+        fx1 = bx1
+    if fy1 < by1: 
+        fy1 = by1
+    if fx2 > bx2: 
+        fx2 = bx2
+    if fy2 > by2: 
+        fy2 = by2
+
+    body_width = bx2 - bx1
+    body_height = by2 - by1
+
+    #Coords of the face in relation to the body
+    rel_x1 = fx1 - bx1
+    rel_y1 = fy1 - by1
+    rel_x2 = fx2 - bx1
+    rel_y2 = fy2 - by1
+
+    # set the coordinates of the face in YOLO format relative to the crop image around the body
+    x_center = (rel_x1 + rel_x2) / 2 / body_width
+    y_center = (rel_y1 + rel_y2) / 2 / body_height
+    width = (rel_x2 - rel_x1) / body_width
+    height = (rel_y2 - rel_y1) / body_height
+
+    return x_center, y_center, width, height

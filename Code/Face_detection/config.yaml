@@ -1,4 +1,4 @@
-path: C:/Users/julie/Documents/Unif/Mémoire/final_face_detection_dataset
+path: ... #path to te root directory that contains the dataset on wich the face detction model must be trained
 train: images/train
 val: images/val
 

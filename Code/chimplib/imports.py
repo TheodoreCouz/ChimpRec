@@ -12,7 +12,10 @@ from torchvision import transforms
 from PIL import Image
 import torch
 import torchreid
-
+from facenet_pytorch import InceptionResnetV1
+import heapq
+import sklearn
+import shutil
 
 __all__ = [
     'np', 
@@ -28,5 +31,9 @@ __all__ = [
     'transforms',
     'Image',
     'torch',
-    'torchreid'
+    'torchreid', 
+    'InceptionResnetV1', 
+    'heapq', 
+    'sklearn', 
+    'shutil'
 ]
