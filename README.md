@@ -35,3 +35,7 @@ $pip install -r requirements.txt
  ```
 
 ![Alt text](./ChimpRec.webp)
+
+# License
+
+This project is licensed under the [MIT License](LICENSE).
