@@ -34,7 +34,7 @@ $./<venv name>/Scripts/activate
 $pip install -r requirements.txt
  ```
 
-![Alt text](./cover.png)
+![Alt text](./cover.webp)
 
 # License
 
